@@ -11,7 +11,10 @@ public enum FarmPatch {
     FARMING_LUMBRIDGE(ItemID.LUMBRIDGE_TELEPORT, new WorldPoint(3193, 3228, 0), NpcID.FAYETH, false),      // Normal tree
     FARMING_TAVERLEY(ItemID.FALADOR_TELEPORT, new WorldPoint(2933, 3436, 0), NpcID.ALICE, false),         // Normal tree
     FARMING_CATHERBY(ItemID.CAMELOT_TELEPORT, new WorldPoint(2809, 3452, 0), NpcID.ELLEN, true),          // Fruit tree
-    FARMING_GNOME(ItemID.CAMELOT_TELEPORT, new WorldPoint(2436, 3416, 0), NpcID.BOLONGO, true);           // Fruit tree
+    FARMING_GNOME_STRONGHOLD(ItemID.CAMELOT_TELEPORT, new WorldPoint(2436, 3416, 0), NpcID.BOLONGO, true),           // Fruit tree
+    FARMING_GUILD_NORMAL(ItemID.XERICS_TALISMAN, new WorldPoint(1246, 3729, 0), NpcID.ROSIE, false),      // Normal tree in Farming Guild
+    FARMING_GUILD_FRUIT(ItemID.XERICS_TALISMAN, new WorldPoint(1246, 3751, 0), NpcID.NIKKIE, true),         // Fruit tree in Farming Guild
+    FARMING_GNOME_STRONGHOLD_FRUIT(ItemID.XERICS_TALISMAN, new WorldPoint(2488, 3178, 0), NpcID.PRISSY_SCILLA, true);  // Fruit tree in Gnome Stronghold
 
     @Getter
     private final int teleportItemId;
@@ -28,6 +31,4 @@ public enum FarmPatch {
         this.npcId = npcId;
         this.isFruitTree = isFruitTree;
     }
-
 }
-

@@ -3,11 +3,8 @@ package net.runelite.client.plugins.microbot.zerozero.farmrun;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.*;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -33,12 +30,15 @@ public class FarmRunScript extends Script {
     private Map<Integer, Integer> missingItemRetries = new HashMap<>(); // Tracks retries for missing items
 
     // Define flags to prevent logging spams
-    private boolean walkedToVarrock = false;
-    private boolean teleportedToFalador = false;
-    private boolean walkedToLumbridge = false;
-    private boolean walkedToTaverley = false;
-    private boolean walkedToCatherby = false;
-    private boolean walkedToGnome = false;
+    private boolean travelledToVarrock = false;
+    private boolean travelledToFalador = false;
+    private boolean travelledToLumbridge = false;
+    private boolean travelledToTaverley = false;
+    private boolean travelledToCatherby = false;
+    private boolean travelledToGnome = false;
+    private boolean travelledToGnomeStronghold = false;
+    private boolean travelledToFarmingGuildNormal = false;
+    private boolean travelledToFarmingGuildFruit = false;
 
     // Define the Grand Exchange area
     WorldArea grandExchange = new WorldArea(3142, 3470, 50, 50, 0); // Grand Exchange coordinates
@@ -80,6 +80,8 @@ public class FarmRunScript extends Script {
                         }
                         break;
 
+
+
                     case BANKING:
                         // Open the bank and withdraw necessary items
                         Microbot.log("Opening bank to withdraw farming items...");
@@ -88,7 +90,7 @@ public class FarmRunScript extends Script {
                             boolean success = withdrawFarmingItems(config);
                             Rs2Bank.closeBank();
                             if (success) {
-                                state = FarmRunState.FARMING_VARROCK;  // Start with first tree patch
+                                state = FarmRunState.FARMING_GNOME_STRONGHOLD_FRUIT;  // Start with first tree patch
                             } else {
                                 Microbot.log("Failed to withdraw required items. Shutting down the script.");
                                 shutdown();
@@ -96,16 +98,50 @@ public class FarmRunScript extends Script {
                         }
                         break;
 
+                    case FARMING_GNOME_STRONGHOLD_FRUIT:
+                        if (config.gnomeFruitPatch()) {  // Check if Gnome patch is enabled
+                            if (!travelledToGnome) {  // Prevent logging multiple times
+                                Microbot.log("Walking to Gnome patch...");
+                                travelledToGnome = true;
+                            }
+                            if (Rs2Walker.walkTo(FarmPatch.FARMING_GNOME_STRONGHOLD_FRUIT.getPatchLocation())) {
+                                if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD_FRUIT, 19533)) {
+                                    state = FarmRunState.FINISHED;
+                                    travelledToGnome = false;  // Reset flag for next use
+                                }
+                            }
+                        } else {
+                            state = FarmRunState.FARMING_GNOME_STRONGHOLD;  // Skip Gnome and finish the farm run
+                        }
+                        break;
+
+                    case FARMING_GNOME_STRONGHOLD:
+                        if (config.gnomeNormalPatch()) {  // Check if Gnome patch is enabled
+                            if (!travelledToGnomeStronghold) {  // Prevent logging multiple times
+                                Microbot.log("Walking to Gnome patch...");
+                                travelledToGnomeStronghold = true;
+                            }
+                            if (Rs2Walker.walkTo(FarmPatch.FARMING_GNOME_STRONGHOLD.getPatchLocation())) {
+                                if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD, 8388)) {
+                                    state = FarmRunState.FINISHED;
+                                    travelledToGnomeStronghold = false;  // Reset flag for next use
+                                }
+                            }
+                        } else {
+                            state = FarmRunState.FARMING_VARROCK;  // Skip Gnome and finish the farm run
+                        }
+                        break;
+
                     case FARMING_VARROCK:
                         if (config.varrockPatch()) {  // Check if Varrock patch is enabled
-                            if (!walkedToVarrock) {  // Prevent logging multiple times
+                            if (!travelledToVarrock) {  // Prevent logging multiple times
                                 Microbot.log("Walking to Varrock patch...");
-                                walkedToVarrock = true;
+                                travelledToVarrock = true;
                             }
                             if (Rs2Walker.walkTo(FarmPatch.FARMING_VARROCK.getPatchLocation())) {
                                 if (performFarmActions(config, FarmPatch.FARMING_VARROCK, 8390)) {
                                     state = FarmRunState.FARMING_FALADOR;
-                                    walkedToVarrock = false;  // Reset flag for next use
+                                    travelledToVarrock = false;  // Reset flag for next use
                                 }
                             }
                         } else {
@@ -115,7 +151,7 @@ public class FarmRunScript extends Script {
 
                     case FARMING_FALADOR:
                         if (config.faladorPatch()) {  // Check if Falador patch is enabled
-                            if (!teleportedToFalador) {  // Prevent logging multiple times
+                            if (!travelledToFalador) {  // Prevent logging multiple times
                                 Microbot.log("Teleporting to Falador...");
                                 if (Rs2Inventory.hasItem(ItemID.FALADOR_TELEPORT)) {
                                     Rs2Inventory.interact(ItemID.FALADOR_TELEPORT, "break");
@@ -123,87 +159,127 @@ public class FarmRunScript extends Script {
                                     Rs2Walker.setTarget(null);
                                     Rs2Player.waitForWalking();
                                     Microbot.log("Teleport successful, walking to Falador patch...");
-                                    teleportedToFalador = true;
+                                    travelledToFalador = true;
                                 }
                             }
                             if (Rs2Walker.walkTo(FarmPatch.FARMING_FALADOR.getPatchLocation())) {
                                 if (performFarmActions(config, FarmPatch.FARMING_FALADOR, 8389)) {
                                     state = FarmRunState.FARMING_LUMBRIDGE;
-                                    teleportedToFalador = false;  // Reset flag for next use
+                                    travelledToFalador = false;  // Reset flag for next use
                                 }
                             }
                         } else {
-                            state = FarmRunState.FARMING_LUMBRIDGE;  // Skip Falador and go to Lumbridge
-                        }
-                        break;
-
-                    case FARMING_LUMBRIDGE:
-                        if (config.lumbridgePatch()) {  // Check if Lumbridge patch is enabled
-                            if (!walkedToLumbridge) {  // Prevent logging multiple times
-                                Microbot.log("Walking to Lumbridge patch...");
-                                walkedToLumbridge = true;
-                            }
-                            if (Rs2Walker.walkTo(FarmPatch.FARMING_LUMBRIDGE.getPatchLocation())) {
-                                if (performFarmActions(config, FarmPatch.FARMING_LUMBRIDGE, 8391)) {
-                                    state = FarmRunState.FARMING_TAVERLEY;
-                                    walkedToLumbridge = false;  // Reset flag for next use
-                                }
-                            }
-                        } else {
-                            state = FarmRunState.FARMING_TAVERLEY;  // Skip Lumbridge and go to Taverley
+                            state = FarmRunState.FARMING_TAVERLEY;  // Skip Falador and go to Lumbridge
                         }
                         break;
 
                     case FARMING_TAVERLEY:
                         if (config.taverleyPatch()) {  // Check if Taverley patch is enabled
-                            if (!walkedToTaverley) {  // Prevent logging multiple times
+                            if (!travelledToTaverley) {  // Prevent logging multiple times
                                 Microbot.log("Walking to Taverley patch...");
-                                walkedToTaverley = true;
+                                travelledToTaverley = true;
                             }
                             if (Rs2Walker.walkTo(FarmPatch.FARMING_TAVERLEY.getPatchLocation())) {
                                 if (performFarmActions(config, FarmPatch.FARMING_TAVERLEY, 8392)) {
                                     state = FarmRunState.FARMING_CATHERBY;
-                                    walkedToTaverley = false;  // Reset flag for next use
+                                    travelledToTaverley = false;  // Reset flag for next use
                                 }
                             }
                         } else {
-                            state = FarmRunState.FARMING_CATHERBY;  // Skip Taverley and go to Catherby
+                            state = FarmRunState.FARMING_LUMBRIDGE;  // Skip Taverley and go to Catherby
+                        }
+                        break;
+
+                    case FARMING_LUMBRIDGE:
+                        if (config.lumbridgePatch()) {  // Check if Lumbridge patch is enabled
+                            if (!travelledToLumbridge) {  // Prevent logging multiple times
+                                Microbot.log("Teleporting to Lumbridge...");
+                                if (Rs2Inventory.hasItem(ItemID.LUMBRIDGE_TELEPORT)) {  // Check if the player has a Lumbridge teleport
+                                    Rs2Inventory.interact(ItemID.LUMBRIDGE_TELEPORT, "break");
+                                    sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);  // Wait for teleport
+                                    Rs2Walker.setTarget(null);
+                                    Rs2Player.waitForWalking();
+                                    Microbot.log("Teleport successful, walking to Lumbridge patch...");
+                                    travelledToLumbridge = true;
+                                }
+                            }
+                            if (Rs2Walker.walkTo(FarmPatch.FARMING_LUMBRIDGE.getPatchLocation())) {
+                                if (performFarmActions(config, FarmPatch.FARMING_LUMBRIDGE, 8391)) {
+                                    state = FarmRunState.FARMING_TAVERLEY;
+                                    travelledToLumbridge = false;  // Reset flag for next use
+                                }
+                            }
+                        } else {
+                            state = FarmRunState.FARMING_CATHERBY;  // Skip Lumbridge and go to Taverley
                         }
                         break;
 
                     case FARMING_CATHERBY:
                         if (config.catherbyPatch()) {  // Check if Catherby patch is enabled
-                            if (!walkedToCatherby) {  // Prevent logging multiple times
+                            if (!travelledToCatherby) {  // Prevent logging multiple times
                                 Microbot.log("Walking to Catherby patch...");
-                                walkedToCatherby = true;
+                                travelledToCatherby = true;
                             }
                             if (Rs2Walker.walkTo(FarmPatch.FARMING_CATHERBY.getPatchLocation())) {
                                 if (performFarmActions(config, FarmPatch.FARMING_CATHERBY, 19532)) {
-                                    state = FarmRunState.FARMING_GNOME;
-                                    walkedToCatherby = false;  // Reset flag for next use
+                                    state = FarmRunState.FINISHED;
+                                    travelledToCatherby = false;  // Reset flag for next use
                                 }
                             }
                         } else {
-                            state = FarmRunState.FARMING_GNOME;  // Skip Catherby and go to Gnome
+                            state = FarmRunState.FARMING_GUILD_NORMAL;  // Skip Catherby and go to Gnome
                         }
                         break;
 
-                    case FARMING_GNOME:
-                        if (config.gnomePatch()) {  // Check if Gnome patch is enabled
-                            if (!walkedToGnome) {  // Prevent logging multiple times
-                                Microbot.log("Walking to Gnome patch...");
-                                walkedToGnome = true;
+                    // Add Farming Guild Normal Tree Patch
+                    case FARMING_GUILD_NORMAL:
+                        if (config.farmingGuildNormalPatch()) {  // Check if Farming Guild normal patch is enabled
+                            if (!travelledToFarmingGuildNormal) {  // Prevent logging multiple times
+                                Microbot.log("Teleporting to Farming Guild Normal Tree patch...");
+                                if (Rs2Inventory.hasItem(ItemID.SKILLS_NECKLACE)) {  // Check if player has a Skills Necklace for teleport
+                                    Rs2Inventory.interact(ItemID.SKILLS_NECKLACE, "rub");
+                                    sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
+                                    Rs2Walker.setTarget(null);
+                                    Rs2Player.waitForWalking();
+                                    Microbot.log("Teleport successful, walking to Farming Guild Normal Tree patch...");
+                                    travelledToFarmingGuildNormal = true;
+                                }
                             }
-                            if (Rs2Walker.walkTo(FarmPatch.FARMING_GNOME.getPatchLocation())) {
-                                if (performFarmActions(config, FarmPatch.FARMING_GNOME, 19533)) {
-                                    state = FarmRunState.FINISHED;
-                                    walkedToGnome = false;  // Reset flag for next use
+                            if (Rs2Walker.walkTo(FarmPatch.FARMING_GUILD_NORMAL.getPatchLocation())) {
+                                if (performFarmActions(config, FarmPatch.FARMING_GUILD_NORMAL, 8389)) {  // Use the correct object ID for the patch
+                                    state = FarmRunState.FARMING_GUILD_FRUIT;  // Move to next patch
+                                    travelledToFarmingGuildNormal = false;  // Reset flag for next use
                                 }
                             }
                         } else {
-                            state = FarmRunState.FINISHED;  // Skip Gnome and finish the farm run
+                            state = FarmRunState.FARMING_GUILD_FRUIT;  // Skip the normal tree and go to fruit tree
                         }
                         break;
+
+                    case FARMING_GUILD_FRUIT:
+                        if (config.farmingGuildFruitPatch()) {  // Check if Farming Guild fruit patch is enabled
+                            if (!travelledToFarmingGuildFruit) {  // Prevent logging multiple times
+                                Microbot.log("Teleporting to Farming Guild Fruit Tree patch...");
+                                if (Rs2Inventory.hasItem(ItemID.SKILLS_NECKLACE)) {  // Check if player has a Skills Necklace for teleport
+                                    Rs2Inventory.interact(ItemID.SKILLS_NECKLACE, "rub");
+                                    sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
+                                    Rs2Walker.setTarget(null);
+                                    Rs2Player.waitForWalking();
+                                    Microbot.log("Teleport successful, walking to Farming Guild Fruit Tree patch...");
+                                    travelledToFarmingGuildFruit = true;
+                                }
+                            }
+                            if (Rs2Walker.walkTo(FarmPatch.FARMING_GUILD_FRUIT.getPatchLocation())) {
+                                if (performFarmActions(config, FarmPatch.FARMING_GUILD_FRUIT, 19532)) {  // Use the correct object ID for the patch
+                                    state = FarmRunState.FINISHED;  // Finished farm run
+                                    travelledToFarmingGuildFruit = false;  // Reset flag for next use
+                                }
+                            }
+                        } else {
+                            state = FarmRunState.FINISHED;  // Skip the fruit tree and finish
+                        }
+                        break;
+
 
                     case FINISHED:
                         Microbot.log("Farm run finished. Returning to the Grand Exchange.");
@@ -426,7 +502,7 @@ public class FarmRunScript extends Script {
         if (!withdrawItemWithRetry(getTeleportItemForPatch(FarmRunState.FARMING_CATHERBY), 1)) return false;
 
         Microbot.log("Attempting to withdraw Gnome Teleport...");
-        if (!withdrawItemWithRetry(getTeleportItemForPatch(FarmRunState.FARMING_GNOME), 1)) return false;
+        if (!withdrawItemWithRetry(getTeleportItemForPatch(FarmRunState.FARMING_GNOME_STRONGHOLD_FRUIT), 1)) return false;
 
         // Withdraw fruit tree saplings
         Microbot.log("Attempting to withdraw Fruit Tree Saplings: " + fruitTreeMaterial.getItemName() + "...");
