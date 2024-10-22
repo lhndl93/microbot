@@ -1,11 +1,14 @@
-package net.runelite.client.plugins.microbot.farming;
+package net.runelite.client.plugins.microbot.zerozero.farmrun;
 
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.farming.enums.FarmingState;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.FarmingMaterial;
+import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.FarmRunState;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -13,13 +16,20 @@ import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.ProtectionMode;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class FarmingScript extends Script {
+public class FarmRunScript extends Script {
 
     public static double version = 1.0;
-    public static FarmingState state = FarmingState.RESET;
+    public static FarmRunState state = FarmRunState.RESET;
+    private FarmRunState lastState = null; // To track state changes and log only once per state
+    private static final int MAX_RETRY_COUNT = 3;  // Max number of retries for missing items
+    private Map<Integer, Integer> missingItemRetries = new HashMap<>(); // Tracks retries for missing items
+
 
     // Tree patch locations
     WorldPoint TREE_RUN_GNOME_STRONGHOLD = new WorldPoint(2437, 3418, 0);
@@ -46,78 +56,100 @@ public class FarmingScript extends Script {
         return grandExchange.contains(localPlayer.getWorldLocation());
     }
 
-    public boolean run(FarmingConfig config) {
+    // Helper method to log state changes (only once per state)
+    private void logStateChange(FarmRunState newState) {
+        if (newState != lastState) {
+            Microbot.log("State changed to: " + newState);
+            lastState = newState;  // Update the last logged state
+        }
+    }
+
+    public boolean run(FarmRunConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
 
+                logStateChange(state);  // Log state transitions
+
                 switch (state) {
                     case RESET:
                         // Ensure the script starts in the Grand Exchange
                         if (!isInGrandExchange()) {
-                            Microbot.getNotifier().notify("Start the script in the Grand Exchange.");
+                            Microbot.log("Not in the Grand Exchange. Please start the script in the Grand Exchange.");
                             shutdown();
                         } else {
-                            state = FarmingState.BANKING;
+                            state = FarmRunState.BANKING;
                         }
                         break;
 
                     case BANKING:
                         // Open the bank and withdraw necessary items
+                        Microbot.log("Opening bank to withdraw farming items...");
                         if (Rs2Bank.openBank()) {
                             Rs2Bank.depositAll();
-                            withdrawFarmingItems(config);
+                            boolean success = withdrawFarmingItems(config);
                             Rs2Bank.closeBank();
-                            state = FarmingState.FARMING_GNOME_STRONGHOLD;  // Start with first tree patch
-                        }
-                        break;
-
-                    case FARMING_GNOME_STRONGHOLD:
-                        if (isInGrandExchange()) {
-                            if (Rs2Walker.walkTo(getPatchLocationForState(FarmingState.FARMING_GNOME_STRONGHOLD))) {
-                                plantTree(config, 19147, NpcID.PRISSY_SCILLA, FarmingState.FARMING_VARROCK);
+                            if (success) {
+                                state = FarmRunState.FARMING_VARROCK;  // Start with first tree patch
+                            } else {
+                                Microbot.log("Failed to withdraw required items. Shutting down the script.");
+                                shutdown();
                             }
                         }
                         break;
 
+                    case FARMING_GNOME_STRONGHOLD:
+                        Microbot.log("Walking to Gnome Stronghold patch...");
+                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmRunState.FARMING_GNOME_STRONGHOLD))) {
+                            plantTree(config, 19147, NpcID.PRISSY_SCILLA, FarmRunState.FARMING_VARROCK);
+                        }
+                        break;
+
                     case FARMING_VARROCK:
-                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmingState.FARMING_VARROCK))) {
-                            plantTree(config, 8390, NpcID.TREZNOR_11957, FarmingState.FARMING_FALADOR);
+                        Microbot.log("Walking to Varrock patch...");
+                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmRunState.FARMING_VARROCK))) {
+                            plantTree(config, 8390, NpcID.TREZNOR_11957, FarmRunState.FARMING_FALADOR);
                         }
                         break;
 
                     case FARMING_FALADOR:
-                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmingState.FARMING_FALADOR))) {
-                            plantTree(config, 8389, NpcID.HESKEL, FarmingState.FARMING_LUMBRIDGE);
+                        Microbot.log("Walking to Falador patch...");
+                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmRunState.FARMING_FALADOR))) {
+                            plantTree(config, 8389, NpcID.HESKEL, FarmRunState.FARMING_LUMBRIDGE);
                         }
                         break;
 
                     case FARMING_LUMBRIDGE:
-                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmingState.FARMING_LUMBRIDGE))) {
-                            plantTree(config, 8391, NpcID.FAYETH, FarmingState.FARMING_TAVERLEY);
+                        Microbot.log("Walking to Lumbridge patch...");
+                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmRunState.FARMING_LUMBRIDGE))) {
+                            plantTree(config, 8391, NpcID.FAYETH, FarmRunState.FARMING_TAVERLEY);
                         }
                         break;
 
                     case FARMING_TAVERLEY:
-                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmingState.FARMING_TAVERLEY))) {
-                            plantTree(config, 8392, NpcID.ALICE, FarmingState.FARMING_CATHERBY);
+                        Microbot.log("Walking to Taverley patch...");
+                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmRunState.FARMING_TAVERLEY))) {
+                            plantTree(config, 8392, NpcID.ALICE, FarmRunState.FARMING_CATHERBY);
                         }
                         break;
 
                     case FARMING_CATHERBY:
-                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmingState.FARMING_CATHERBY))) {
-                            plantTree(config, 19532, NpcID.ELLEN, FarmingState.FARMING_GNOME);
+                        Microbot.log("Walking to Catherby patch...");
+                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmRunState.FARMING_CATHERBY))) {
+                            plantTree(config, 19532, NpcID.ELLEN, FarmRunState.FARMING_GNOME);
                         }
                         break;
 
                     case FARMING_GNOME:
-                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmingState.FARMING_GNOME))) {
-                            plantTree(config, 19533, NpcID.BOLONGO, FarmingState.FINISHED);
+                        Microbot.log("Walking to Gnome patch...");
+                        if (Rs2Walker.walkTo(getPatchLocationForState(FarmRunState.FARMING_GNOME))) {
+                            plantTree(config, 19533, NpcID.BOLONGO, FarmRunState.FINISHED);
                         }
                         break;
 
                     case FINISHED:
+                        Microbot.log("Farm run finished. Returning to the Grand Exchange.");
                         if (Rs2Walker.walkTo(BankLocation.GRAND_EXCHANGE.getWorldPoint())) {
                             shutdown();
                         }
@@ -128,28 +160,64 @@ public class FarmingScript extends Script {
                 }
 
             } catch (Exception ex) {
-                System.out.println(ex.getMessage());
+                Microbot.log("Error: " + ex.getMessage());
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
     }
 
-    private void withdrawFarmingItems(FarmingConfig config) {
+    private boolean withdrawFarmingItems(FarmRunConfig config) {
         FarmingMaterial material = config.farmingMaterial();
+        Microbot.log("Withdrawing farming items: " + material.getItemName());
 
-        Rs2Bank.withdrawOne(ItemID.SPADE);
-        Rs2Bank.withdrawOne(ItemID.RAKE);
-        Rs2Bank.withdrawX(ItemID.STAMINA_POTION4, 1);
-        Rs2Bank.withdrawX(getTeleportItemForState(FarmingState.FARMING_VARROCK), 2);
-        Rs2Bank.withdrawX(getTeleportItemForState(FarmingState.FARMING_FALADOR), 1);
-        Rs2Bank.withdrawX(getTeleportItemForState(FarmingState.FARMING_LUMBRIDGE), 1);
-        Rs2Bank.withdrawX(material.getItemName(), 4);  // Withdraw saplings
-        Rs2Bank.withdrawX(material.getProtectionItem(), material.getProtectionItemAmount());  // Withdraw protection items
-        Rs2Bank.withdrawX(ItemID.COINS_995, 10000);  // Ensure enough coins for payments
+        if (!withdrawItemWithRetry(ItemID.SPADE)) return false;
+        if (!withdrawItemWithRetry(ItemID.RAKE)) return false;
+        if (!withdrawItemWithRetry(ItemID.STAMINA_POTION4, 1)) return false;
+        if (!withdrawItemWithRetry(getTeleportItemForState(FarmRunState.FARMING_VARROCK), 2)) return false;
+        if (!withdrawItemWithRetry(getTeleportItemForState(FarmRunState.FARMING_FALADOR), 1)) return false;
+        if (!withdrawItemWithRetry(getTeleportItemForState(FarmRunState.FARMING_LUMBRIDGE), 1)) return false;
+        if (!withdrawItemWithRetry(material.getItemId(), 4)) return false;  // Withdraw saplings by item ID
+
+        // Only withdraw protection items if "Protect Patch" is selected
+        if (config.protectionMode() == ProtectionMode.PROTECT_PATCH) {
+            Microbot.log("Withdrawing protection items.");
+            if (!withdrawItemWithRetry(material.getProtectionItemId(), material.getProtectionItemAmount())) return false;  // Withdraw protection items by item ID
+        } else {
+            Microbot.log("Skipping protection item withdrawal (Pay to Protect selected).");
+        }
+
+        if (!withdrawItemWithRetry(ItemID.COINS_995, 10000)) return false;  // Ensure enough coins for payments
+
+        return true;  // All items were successfully withdrawn
     }
 
-    // Helper method to get the correct teleport item based on the current state
-    private int getTeleportItemForState(FarmingState state) {
+
+    // Helper method to withdraw an item with retry logic
+    private boolean withdrawItemWithRetry(int itemId, int amount) {
+        int retries = missingItemRetries.getOrDefault(itemId, 0);
+
+        if (!Rs2Bank.hasItem(itemId)) {
+            retries++;
+            Microbot.log("Item ID " + itemId + " is missing from the bank. Retry attempt: " + retries);
+            missingItemRetries.put(itemId, retries);
+
+            if (retries >= MAX_RETRY_COUNT) {
+                Microbot.log("Failed to find Item ID " + itemId + " after " + MAX_RETRY_COUNT + " attempts. Stopping the script.");
+                return false;  // Exceeded max retries
+            }
+            return false;  // Retry withdrawing this item on the next cycle
+        }
+
+        Rs2Bank.withdrawX(itemId, amount);
+        missingItemRetries.remove(itemId);  // Reset retries if item is found
+        return true;  // Successfully withdrew the item
+    }
+
+    private boolean withdrawItemWithRetry(int itemId) {
+        return withdrawItemWithRetry(itemId, 1);  // Default to withdraw one if no amount is specified
+    }
+
+    private int getTeleportItemForState(FarmRunState state) {
         switch (state) {
             case FARMING_VARROCK:
                 return ItemID.VARROCK_TELEPORT;
@@ -158,18 +226,17 @@ public class FarmingScript extends Script {
             case FARMING_LUMBRIDGE:
                 return ItemID.LUMBRIDGE_TELEPORT;
             case FARMING_TAVERLEY:
-                return ItemID.TAVERLEY_TELEPORT; // You may need to define this item ID
+                return ItemID.TAVERLEY_TELEPORT;  // Define this correctly
             case FARMING_CATHERBY:
-                return ItemID.CATHERBY_TELEPORT; // You may need to define this item ID
+                return ItemID.CATHERBY_TELEPORT;  // Define this correctly
             case FARMING_GNOME:
-                return ItemID.GNOME_STRONGHOLD_TELEPORT; // You may need to define this item ID
+                return ItemID.CATHERBY_TELEPORT;  // NEED TO UPDATE
             default:
                 return -1;  // Return an invalid item ID if there's no teleport
         }
     }
 
-    // Helper method to get the correct patch location based on the current state
-    private WorldPoint getPatchLocationForState(FarmingState state) {
+    private WorldPoint getPatchLocationForState(FarmRunState state) {
         switch (state) {
             case FARMING_VARROCK:
                 return TREE_RUN_VARROCK;
@@ -188,31 +255,23 @@ public class FarmingScript extends Script {
         }
     }
 
-    private boolean plantTree(FarmingConfig config, int objectId, int npcId, FarmingState nextState) {
+    private boolean plantTree(FarmRunConfig config, int objectId, int npcId, FarmRunState nextState) {
         try {
-            FarmingMaterial material = config.farmingMaterial(); // Get the selected material
-
-            // Get the tree object composition
+            FarmingMaterial material = config.farmingMaterial();  // Get the selected material
             final ObjectComposition tree = Rs2GameObject.findObjectComposition(objectId);
 
             if (tree != null && tree.getImpostor().getName().equalsIgnoreCase(material.getName())) {
 
-                // Check if tree health can be checked
                 if (Rs2GameObject.hasAction(tree, "check-health")) {
                     Rs2GameObject.interact(objectId, "check-health");
                     int currentFarmingExp = Microbot.getClient().getSkillExperience(Skill.FARMING);
                     sleepUntilOnClientThread(() -> currentFarmingExp != Microbot.getClient().getSkillExperience(Skill.FARMING));
-
-                    // If the tree can be chopped down, interact with NPC to pay for chopping
                 } else if (Rs2GameObject.hasAction(tree, "chop down")) {
                     Rs2Npc.interact(npcId, "pay");
                     sleepUntil(() -> Rs2Widget.hasWidget("pay 200 coins"));
                     Rs2Keyboard.typeString("1");
-
-                    // Otherwise, pay for protection if the tree has no other actions
                 } else {
-                    if (tree != null
-                            && !Rs2GameObject.hasAction(tree, "chop down")
+                    if (tree != null && !Rs2GameObject.hasAction(tree, "chop down")
                             && !Rs2GameObject.hasAction(tree, "check-health")
                             && tree.getImpostor().getName().equalsIgnoreCase(material.getName())) {
                         Rs2Npc.interact(npcId, "pay");
@@ -220,31 +279,28 @@ public class FarmingScript extends Script {
                     }
                 }
             } else {
-                // Rake and plant the tree if no tree exists
                 if (!rakeAndPlantTree(objectId, material.getItemName(), tree)) return true;
             }
 
-            // If the inventory contains the required items for the material, proceed to the next state
             if (Rs2Inventory.hasItemAmount(material.getItemName(), 1, false, true) &&
                     Rs2Inventory.hasItemAmount(material.getProtectionItem(), material.getProtectionItemAmount(), false, true)) {
                 state = nextState;
             }
             return false;
         } catch (Exception ex) {
-            System.out.println(ex.getMessage());
+            Microbot.log("Error in plantTree: " + ex.getMessage());
         }
-
         return false;
     }
 
     private boolean rakeAndPlantTree(int patchId, String treeToPlant, ObjectComposition tree) {
-        if (Microbot.isAnimating()) return false;
+        if (Rs2Player.isAnimating()) return false;
 
         GameObject farmingPatch = Rs2GameObject.findObjectByImposter(patchId, "rake");
         if (farmingPatch != null) {
             Rs2GameObject.interact(farmingPatch, "rake");
             sleep(2000);
-            sleepUntil(() -> !Microbot.isAnimating());
+            sleepUntil(() -> !Rs2Player.isAnimating());
         } else {
             Rs2Inventory.use(treeToPlant);
             boolean success = Rs2GameObject.interact(patchId);
@@ -258,7 +314,10 @@ public class FarmingScript extends Script {
 
     @Override
     public void shutdown() {
+        if (mainScheduledFuture != null) {
+            mainScheduledFuture.cancel(true);  // Stop the scheduled tasks
+        }
         super.shutdown();
-        state = FarmingState.RESET;
+        state = FarmRunState.RESET;  // Reset state when stopped
     }
 }

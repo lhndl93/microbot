@@ -4,6 +4,8 @@ import com.google.inject.Provides;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 
 import javax.inject.Inject;
 
@@ -15,25 +17,45 @@ import javax.inject.Inject;
 public class FarmRunPlugin extends Plugin {
 
     @Inject
-    private FarmRunOverlay overlay;
+    private FarmRunScript script;
 
     @Inject
-    private FarmRunScript script;
+    private ConfigManager configManager;
+
+    private FarmRunConfig config;
 
     @Override
     protected void startUp() throws Exception {
-        overlay.initialize();
-        script.run(getConfig(FarmRunConfig.class));
+        config = configManager.getConfig(FarmRunConfig.class);  // Get the configuration instance
+        if (config.startStop()) {
+            script.run(config);  // If started via the config, run the script
+        }
     }
 
     @Override
     protected void shutDown() throws Exception {
-        overlay.shutdown();
         script.shutdown();
     }
 
+    // This method is used to provide the config instance for the plugin
     @Provides
     FarmRunConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(FarmRunConfig.class);
+    }
+
+    // Listen to config changes (Start/Stop button)
+    @Subscribe
+    public void onConfigChanged(ConfigChanged event) {
+        if (!event.getGroup().equals("farmrun")) {
+            return;
+        }
+
+        if (event.getKey().equals("startStop")) {
+            if (config.startStop()) {
+                script.run(config);  // Start the script when toggled on
+            } else {
+                script.shutdown();  // Stop the script when toggled off
+            }
+        }
     }
 }
