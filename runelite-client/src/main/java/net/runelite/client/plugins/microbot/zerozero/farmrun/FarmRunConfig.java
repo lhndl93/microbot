@@ -4,9 +4,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
-import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.CompostType;
-import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.FarmingMaterial;
-import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.ProtectionMode;
+import net.runelite.client.plugins.microbot.zerozero.farmrun.enums.*;
 
 @ConfigGroup("farmrun")
 public interface FarmRunConfig extends Config {
@@ -206,8 +204,8 @@ public interface FarmRunConfig extends Config {
             position = 0,
             section = plantingSection
     )
-    default FarmingMaterial normalTree() {
-        return FarmingMaterial.MAGIC_TREE;  // Default to Magic Tree
+    default NormalTreeMaterial normalTree() {
+        return NormalTreeMaterial.MAGIC_TREE;  // Default to Magic Tree
     }
 
     @ConfigItem(
@@ -217,7 +215,7 @@ public interface FarmRunConfig extends Config {
             position = 1,
             section = plantingSection
     )
-    default FarmingMaterial fruitTree() {
-        return FarmingMaterial.PALM_TREE;  // Default to Palm Tree
+    default FruitTreeMaterial fruitTree() {
+        return FruitTreeMaterial.PALM_TREE;  // Default to Palm Tree
     }
 }

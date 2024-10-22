@@ -105,7 +105,7 @@ public class FarmRunScript extends Script {
                                 travelledToGnome = true;
                             }
                             if (Rs2Walker.walkTo(FarmPatch.FARMING_GNOME_STRONGHOLD_FRUIT.getPatchLocation())) {
-                                if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD_FRUIT, 19533)) {
+                                if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD_FRUIT, 7962)) {
                                     state = FarmRunState.FINISHED;
                                     travelledToGnome = false;  // Reset flag for next use
                                 }
@@ -122,7 +122,7 @@ public class FarmRunScript extends Script {
                                 travelledToGnomeStronghold = true;
                             }
                             if (Rs2Walker.walkTo(FarmPatch.FARMING_GNOME_STRONGHOLD.getPatchLocation())) {
-                                if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD, 8388)) {
+                                if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD, 19147)) {
                                     state = FarmRunState.FINISHED;
                                     travelledToGnomeStronghold = false;  // Reset flag for next use
                                 }
@@ -300,16 +300,33 @@ public class FarmRunScript extends Script {
     }
 
     private boolean performFarmActions(FarmRunConfig config, FarmPatch patch, int objectId) {
-        // Choose the tree type based on the patch type (normal or fruit)
-        FarmingMaterial material = patch.isFruitTree() ? config.fruitTree() : config.normalTree();
+        if (patch.isFruitTree()) {
+            FruitTreeMaterial material = config.fruitTree(); // Use FruitTreeMaterial for fruit trees
+            return performFruitTreeActions(config, patch, objectId, material);
+        } else {
+            NormalTreeMaterial material = config.normalTree(); // Use NormalTreeMaterial for normal trees
+            return performNormalTreeActions(config, patch, objectId, material);
+        }
+    }
+
+    // Actions specific to fruit trees
+    private boolean performFruitTreeActions(FarmRunConfig config, FarmPatch patch, int objectId, FruitTreeMaterial material) {
+        return performTreeActions(config, patch, objectId, material);
+    }
+
+    // Actions specific to normal trees
+    private boolean performNormalTreeActions(FarmRunConfig config, FarmPatch patch, int objectId, NormalTreeMaterial material) {
+        return performTreeActions(config, patch, objectId, material);
+    }
+
+    // Common tree action logic
+    private <T> boolean performTreeActions(FarmRunConfig config, FarmPatch patch, int objectId, T material) {
         ObjectComposition tree = Rs2GameObject.findObjectComposition(objectId);
 
         // Step 1: Check health if applicable
         if (tree != null && Rs2GameObject.hasAction(tree, "check-health")) {
             if (checkTree(config, objectId)) {
-                // Wait a moment before removing the tree after checking health
                 sleep(2000); // Ensure the check-health action is fully completed
-                // Proceed to remove the tree if check-health was successful
                 if (!removeTree(config, objectId, patch.getNpcId())) {
                     return false; // Tree removal failed
                 }
@@ -339,10 +356,9 @@ public class FarmRunScript extends Script {
         }
 
         // Step 5: Protect the tree with compost or items
-        protectTree(config, objectId, patch.isFruitTree()); // Either protect with items or apply compost
+        protectTree(config, objectId, patch.isFruitTree()); // Protect with items or apply compost
         return true;
     }
-
 
 
 
@@ -403,11 +419,23 @@ public class FarmRunScript extends Script {
         return false;
     }
 
-    // Plant the sapling
-    private boolean plantTree(FarmRunConfig config, int objectId, FarmingMaterial material) {
+    private boolean plantTree(FarmRunConfig config, int objectId, Object material) {
         if (!Rs2Player.isMoving() && !Rs2Player.isAnimating() && !Rs2Player.isInteracting() && !Rs2Player.isWalking()) {
-            Microbot.log("Planting the tree: " + material.getItemName());
-            boolean success = Rs2Inventory.useItemOnObject(material.getItemId(), objectId);  // Use sapling on the patch
+            String itemName;
+            int itemId;
+
+            if (material instanceof NormalTreeMaterial) {
+                itemName = ((NormalTreeMaterial) material).getItemName();
+                itemId = ((NormalTreeMaterial) material).getItemId();
+            } else if (material instanceof FruitTreeMaterial) {
+                itemName = ((FruitTreeMaterial) material).getItemName();
+                itemId = ((FruitTreeMaterial) material).getItemId();
+            } else {
+                return false; // Unknown material type
+            }
+
+            Microbot.log("Planting the tree: " + itemName);
+            boolean success = Rs2Inventory.useItemOnObject(itemId, objectId);  // Use sapling on the patch
             if (success) {
                 sleepUntil(Rs2Player::isInteracting);
                 sleepUntil(() -> !Rs2Player.isInteracting());
@@ -416,6 +444,8 @@ public class FarmRunScript extends Script {
         }
         return false;
     }
+
+
 
 
     private boolean useCompost(FarmRunConfig config, int objectId) {
@@ -437,22 +467,34 @@ public class FarmRunScript extends Script {
 
     private void protectTree(FarmRunConfig config, int objectId, boolean isFruitTree) {
         if (!Rs2Player.isMoving() && !Rs2Player.isAnimating() && !Rs2Player.isInteracting() && !Rs2Player.isWalking()) {
-            // Use compost if selected in the configuration
             if (config.protectionMode() == ProtectionMode.USE_COMPOST) {
                 Microbot.log("Applying compost to the patch...");
                 useCompost(config, objectId);
             } else if (config.protectionMode() == ProtectionMode.PROTECT_PATCH_WITH_ITEMS) {
-                // Protect the patch with items based on whether it's a normal tree or a fruit tree
-                FarmingMaterial material = isFruitTree ? config.fruitTree() : config.normalTree();
-                Microbot.log("Protecting the patch with items: " + material.getProtectionItem());
+                if (isFruitTree) {
+                    FruitTreeMaterial material = config.fruitTree();
+                    Microbot.log("Protecting the fruit tree with items: " + material.getProtectionItem());
 
-                if (Rs2Inventory.hasItemAmount(material.getProtectionItem(), material.getProtectionItemAmount())) {
-                    Rs2Npc.interact(getNpcIdForPatch(state), "pay");
-                    sleepUntil(() -> Rs2Inventory.hasItemAmount(material.getProtectionItem(), material.getProtectionItemAmount(), true));
-                    sleepUntil(Rs2Player::isInteracting);
-                    sleepUntil(() -> !Rs2Player.isInteracting());
+                    if (Rs2Inventory.hasItemAmount(material.getProtectionItem(), material.getProtectionItemAmount())) {
+                        Rs2Npc.interact(getNpcIdForPatch(state), "pay");
+                        sleepUntil(() -> Rs2Inventory.hasItemAmount(material.getProtectionItem(), material.getProtectionItemAmount(), true));
+                        sleepUntil(Rs2Player::isInteracting);
+                        sleepUntil(() -> !Rs2Player.isInteracting());
+                    } else {
+                        Microbot.log("Missing protection items for " + material.getName());
+                    }
                 } else {
-                    Microbot.log("Missing protection items for " + material.getName());
+                    NormalTreeMaterial material = config.normalTree();
+                    Microbot.log("Protecting the normal tree with items: " + material.getProtectionItem());
+
+                    if (Rs2Inventory.hasItemAmount(material.getProtectionItem(), material.getProtectionItemAmount())) {
+                        Rs2Npc.interact(getNpcIdForPatch(state), "pay");
+                        sleepUntil(() -> Rs2Inventory.hasItemAmount(material.getProtectionItem(), material.getProtectionItemAmount(), true));
+                        sleepUntil(Rs2Player::isInteracting);
+                        sleepUntil(() -> !Rs2Player.isInteracting());
+                    } else {
+                        Microbot.log("Missing protection items for " + material.getName());
+                    }
                 }
             } else {
                 Microbot.log("No protection selected.");
@@ -462,9 +504,11 @@ public class FarmRunScript extends Script {
 
 
 
+
+
     private boolean withdrawFarmingItems(FarmRunConfig config) {
         // Withdraw normal tree saplings
-        FarmingMaterial normalTreeMaterial = config.normalTree();
+        NormalTreeMaterial normalTreeMaterial = config.normalTree();
         Microbot.log("Withdrawing normal tree items: " + normalTreeMaterial.getItemName());
 
         // Withdraw spade
@@ -494,7 +538,7 @@ public class FarmRunScript extends Script {
         if (!withdrawItemWithRetry(normalTreeMaterial.getItemId(), 4)) return false;
 
         // Withdraw fruit tree saplings
-        FarmingMaterial fruitTreeMaterial = config.fruitTree();
+        FruitTreeMaterial fruitTreeMaterial = config.fruitTree();
         Microbot.log("Withdrawing fruit tree items: " + fruitTreeMaterial.getItemName());
 
         // Withdraw fruit tree teleports
@@ -527,6 +571,8 @@ public class FarmRunScript extends Script {
         Microbot.log("Successfully withdrew all required items.");
         return true;  // All items were successfully withdrawn
     }
+
+
 
 
 
