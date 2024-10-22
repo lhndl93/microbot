@@ -1,8 +1,9 @@
 package net.runelite.client.plugins.microbot.zerozero.farmrun.enums;
 
 public enum ProtectionMode {
-    PROTECT_PATCH("Protect Patch"),
-    PAY_TO_PROTECT("Pay to Protect");
+    USE_COMPOST("Use Compost"),
+    PROTECT_PATCH_WITH_ITEMS("Protect with items"),
+    NO_PROTECTION("Don't protect"),;
 
     private final String name;
 
