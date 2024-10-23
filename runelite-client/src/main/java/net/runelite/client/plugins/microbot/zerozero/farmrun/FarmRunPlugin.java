@@ -1,16 +1,18 @@
 package net.runelite.client.plugins.microbot.zerozero.farmrun;
 
 import com.google.inject.Provides;
+
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 
+
 import javax.inject.Inject;
 
 @PluginDescriptor(
-        name = "Farm Run",
+        name = PluginDescriptor.zerozero + "Farm Run",
         description = "Automates tree and fruit tree farming runs",
         tags = {"farming", "tree", "run"}
 )

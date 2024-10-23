@@ -29,22 +29,91 @@ public interface FarmRunConfig extends Config {
         return false;  // Default to not started
     }
 
-    @ConfigItem(
-            keyName = "teleportEnabled",
-            name = "Enable Teleports",
-            description = "Enable or disable teleportation to tree patches.",
+    @ConfigSection(
+            name = "Extra Settings",
+            description = "General configurations for farm run.",
             position = 1,
-            section = generalSection
+            closedByDefault = true
     )
-    default boolean teleportEnabled() {
-        return true;
+    String extraSettings = "extraSettings";
+
+    @ConfigItem(
+            keyName = "returnAfterFinish",
+            name = "Return to G/E after",
+            description = "Return to G/E when finished the run",
+            position = 1,
+            section = extraSettings
+    )
+    default boolean returnAfterFinish() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "autoWeed",
+            name = "Auto-weed (Tithe farm reward)",
+            description = "Auto Weed from Tithe farm",
+            position = 2,
+            section = extraSettings
+    )
+    default boolean autoWeed() {
+        return false;
+    }
+
+    @ConfigSection(
+            name = "Teleport Options",
+            description = "Configure teleport options",
+            position = 2,
+            closedByDefault = true
+    )
+    String teleportSettings = "teleportSettings";
+
+    @ConfigItem(
+            keyName = "teleportMethod",
+            name = "Teleport Method",
+            description = "Select whether to use Magic spells or Teleport Tablets for teleporting.",
+            position = 0,
+            section = teleportSettings
+    )
+    default TeleportMethod teleportMethod() {
+        return TeleportMethod.MAGIC;
+    }
+
+    // Planting Settings Section
+    @ConfigSection(
+            name = "Planting Settings",
+            description = "Settings for the type of tree or fruit tree to plant.",
+            position = 3,
+            closedByDefault = true
+    )
+    String plantingSection = "plantingSection";
+
+    @ConfigItem(
+            keyName = "normalTree",
+            name = "Normal Tree",
+            description = "The type of tree to plant.",
+            position = 0,
+            section = plantingSection
+    )
+    default NormalTreeMaterial normalTree() {
+        return NormalTreeMaterial.MAGIC_TREE;  // Default to Magic Tree
+    }
+
+    @ConfigItem(
+            keyName = "fruitTree",
+            name = "Fruit Tree",
+            description = "The type of fruit tree to plant.",
+            position = 1,
+            section = plantingSection
+    )
+    default FruitTreeMaterial fruitTree() {
+        return FruitTreeMaterial.PALM_TREE;  // Default to Palm Tree
     }
 
     // Tree Patches Section
     @ConfigSection(
             name = "Tree Patches",
             description = "Enable or disable tree patches.",
-            position = 1,
+            position = 4,
             closedByDefault = true
     )
     String treePatchesSection = "treePatchesSection";
@@ -94,19 +163,19 @@ public interface FarmRunConfig extends Config {
     }
 
     @ConfigItem(
-            keyName = "gnomeNormalPatch",
-            name = "Enable Gnome Patch",
+            keyName = "gnomeStrongholdNormalPatch",
+            name = "Enable Gnome Stronghold Patch",
             description = "Enable or disable the Gnome tree patch.",
             position = 4,
             section = treePatchesSection
     )
-    default boolean gnomeNormalPatch() {
+    default boolean gnomeStrongholdNormalPatch() {
         return true;  // Default to enabled
     }
 
     @ConfigItem(
             keyName = "farmingGuildNormalPatch",
-            name = "Farming Guild Normal Tree Patch",
+            name = "Enable Farming Guild patch",
             description = "Enable or disable the Farming Guild normal tree patch.",
             position = 5,
             section = treePatchesSection
@@ -119,7 +188,7 @@ public interface FarmRunConfig extends Config {
     @ConfigSection(
             name = "Fruit Tree Patches",
             description = "Enable or disable fruit tree patches.",
-            position = 2,
+            position = 5,
             closedByDefault = true
     )
     String fruitTreePatchesSection = "fruitTreePatchesSection";
@@ -136,19 +205,19 @@ public interface FarmRunConfig extends Config {
     }
 
     @ConfigItem(
-            keyName = "gnomeFruitPatch",
-            name = "Enable Gnome Fruit Patch",
-            description = "Enable or disable the Gnome fruit tree patch.",
+            keyName = "gnomeStrongholdFruitPatch",
+            name = "Enable Gnome Stronghold",
+            description = "Enable or disable the Gnome Stronghold fruit tree patch.",
             position = 1,
             section = fruitTreePatchesSection
     )
-    default boolean gnomeFruitPatch() {
+    default boolean gnomeStrongholdFruitPatch() {
         return true;  // Default to enabled
     }
 
     @ConfigItem(
             keyName = "farmingGuildFruitPatch",
-            name = "Farming Guild Fruit Tree Patch",
+            name = "Enable Farming Guild Patch",
             description = "Enable or disable the Farming Guild fruit tree patch.",
             position = 3,
             section = fruitTreePatchesSection
@@ -157,11 +226,22 @@ public interface FarmRunConfig extends Config {
         return true;  // Enabled by default
     }
 
+    @ConfigItem(
+            keyName = "gnomeVillageFruit",
+            name = "Enable Gnome Village",
+            description = "Enable or disable the Gnome Village fruit tree patch.",
+            position = 3,
+            section = fruitTreePatchesSection
+    )
+    default boolean gnomeVillageFruit() {
+        return true;  // Enabled by default
+    }
+
     // Protection Settings Section
     @ConfigSection(
             name = "Protection Settings",
             description = "Settings for protecting the patches with compost or items.",
-            position = 3,
+            position = 6,
             closedByDefault = true
     )
     String protectionSection = "protectionSection";
@@ -188,34 +268,10 @@ public interface FarmRunConfig extends Config {
         return CompostType.ULTRA_COMPOST;  // Default to Ultra Compost
     }
 
-    // Planting Settings Section
-    @ConfigSection(
-            name = "Planting Settings",
-            description = "Settings for the type of tree or fruit tree to plant.",
-            position = 4,
-            closedByDefault = true
-    )
-    String plantingSection = "plantingSection";
 
-    @ConfigItem(
-            keyName = "normalTree",
-            name = "Normal Tree",
-            description = "The type of tree to plant.",
-            position = 0,
-            section = plantingSection
-    )
-    default NormalTreeMaterial normalTree() {
-        return NormalTreeMaterial.MAGIC_TREE;  // Default to Magic Tree
+    public enum TeleportMethod {
+        MAGIC,
+        TELEPORT_TABLET
     }
 
-    @ConfigItem(
-            keyName = "fruitTree",
-            name = "Fruit Tree",
-            description = "The type of fruit tree to plant.",
-            position = 1,
-            section = plantingSection
-    )
-    default FruitTreeMaterial fruitTree() {
-        return FruitTreeMaterial.PALM_TREE;  // Default to Palm Tree
-    }
 }
