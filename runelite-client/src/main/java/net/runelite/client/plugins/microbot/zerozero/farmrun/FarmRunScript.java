@@ -646,7 +646,7 @@ public class FarmRunScript extends Script {
             }
             if (taverleyTeleports > 0) {
                 Microbot.log("Withdrawing " + taverleyTeleports + " Taverley Teleport Tablets...");
-                if (!withdrawItemWithCheck(ItemID.TAVERLEY_TELEPORT, taverleyTeleports)) return false;
+                if (!withdrawItemWithCheck(ItemID.FALADOR_TELEPORT, taverleyTeleports)) return false;
             }
             if (catherbyTeleports > 0) {
                 Microbot.log("Withdrawing " + catherbyTeleports + " Camelot Teleport Tablets...");
