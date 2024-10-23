@@ -755,7 +755,8 @@ public class FarmRunScript extends Script {
         int teleportItemId = getTeleportItemForPatch(state);
         if (Rs2Inventory.hasItem(teleportItemId)) {
             Rs2Inventory.interact(teleportItemId, "Break");
-            sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
+            Rs2Player.waitForAnimation();
+            sleepUntil(() -> !Rs2Player.isAnimating());
             Rs2Walker.setTarget(null);  // Reset walking target to prevent conflict
             Rs2Player.waitForWalking();
             return true;
