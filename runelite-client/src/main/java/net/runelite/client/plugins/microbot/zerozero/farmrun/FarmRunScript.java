@@ -173,8 +173,8 @@ public class FarmRunScript extends Script {
                                 Rs2Inventory.interact(getTeleportItemForPatch(FarmRunState.FARMING_VARROCK), "Break");
                                 sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
                             } else {
-                                Microbot.log("Farm Run finished, cya! :)");
-                                shutdown();
+                                Microbot.log("No Varrock Teleport found! Walking to the Grand Exchange...");
+                                Rs2Walker.walkTo(BankLocation.GRAND_EXCHANGE.getWorldPoint());
                             }
                         } else {
                             Microbot.log("Walking back to the Grand Exchange.");
@@ -197,16 +197,13 @@ public class FarmRunScript extends Script {
     }
 
     // Process each patch based on the configuration
+    // Process each patch based on the configuration
     private void processPatch(FarmRunConfig config, FarmPatch patch) {
         switch (patch) {
             case FARMING_GNOME_VILLAGE:
                 if (!travelledToGnomeVillage) {
-                    Microbot.log("Walking to Gnome Village patch...");
-                    if (Rs2Inventory.hasItem(getTeleportItemForPatch(FarmRunState.FARMING_GNOME_STRONGHOLD))) {
-                        Rs2Inventory.interact(getTeleportItemForPatch(FarmRunState.FARMING_GNOME_STRONGHOLD), "Break");
-                        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
-                        Rs2Walker.setTarget(null);
-                        Rs2Player.waitForWalking();
+                    Microbot.log("Teleporting to Gnome Village patch...");
+                    if (useTeleport(FarmRunState.FARMING_GNOME_VILLAGE)) {
                         travelledToGnomeVillage = true;
                     }
                 }
@@ -220,9 +217,10 @@ public class FarmRunScript extends Script {
 
             case FARMING_GNOME_STRONGHOLD:
                 if (!travelledToGnomeStronghold) {
-                    Microbot.log("Walking to Gnome Stronghold Normal patch...");
-                    travelledToGnomeStronghold = true;
-
+                    Microbot.log("Teleporting to Gnome Stronghold Normal patch...");
+                    if (useTeleport(FarmRunState.FARMING_GNOME_STRONGHOLD)) {
+                        travelledToGnomeStronghold = true;
+                    }
                 }
                 if (Rs2Walker.walkTo(FarmPatch.FARMING_GNOME_STRONGHOLD.getPatchLocation())) {
                     if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD, 19147)) {
@@ -234,8 +232,10 @@ public class FarmRunScript extends Script {
 
             case FARMING_GNOME_STRONGHOLD_FRUIT:
                 if (!travelledToGnomeStrongholdFruit) {
-                    Microbot.log("Walking to Gnome Stronghold Fruit patch...");
-                    travelledToGnomeStrongholdFruit = true;
+                    Microbot.log("Teleporting to Gnome Stronghold Fruit patch...");
+                    if (useTeleport(FarmRunState.FARMING_GNOME_STRONGHOLD_FRUIT)) {
+                        travelledToGnomeStrongholdFruit = true;
+                    }
                 }
                 if (Rs2Walker.walkTo(FarmPatch.FARMING_GNOME_STRONGHOLD_FRUIT.getPatchLocation())) {
                     if (performFarmActions(config, FarmPatch.FARMING_GNOME_STRONGHOLD_FRUIT, 7962)) {
@@ -248,11 +248,7 @@ public class FarmRunScript extends Script {
             case FARMING_VARROCK:
                 if (!travelledToVarrock) {
                     Microbot.log("Teleporting to Varrock patch...");
-                    if (Rs2Inventory.hasItem(getTeleportItemForPatch(FarmRunState.FARMING_VARROCK))) {
-                        Rs2Inventory.interact(getTeleportItemForPatch(FarmRunState.FARMING_VARROCK), "Break");
-                        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
-                        Rs2Walker.setTarget(null);
-                        Rs2Player.waitForWalking();
+                    if (useTeleport(FarmRunState.FARMING_VARROCK)) {
                         travelledToVarrock = true;
                     }
                 }
@@ -267,11 +263,7 @@ public class FarmRunScript extends Script {
             case FARMING_FALADOR:
                 if (!travelledToFalador) {
                     Microbot.log("Teleporting to Falador patch...");
-                    if (Rs2Inventory.hasItem(getTeleportItemForPatch(FarmRunState.FARMING_FALADOR))) {
-                        Rs2Inventory.interact(getTeleportItemForPatch(FarmRunState.FARMING_FALADOR), "Break");
-                        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
-                        Rs2Walker.setTarget(null);
-                        Rs2Player.waitForWalking();
+                    if (useTeleport(FarmRunState.FARMING_FALADOR)) {
                         travelledToFalador = true;
                     }
                 }
@@ -286,11 +278,7 @@ public class FarmRunScript extends Script {
             case FARMING_LUMBRIDGE:
                 if (!travelledToLumbridge) {
                     Microbot.log("Teleporting to Lumbridge patch...");
-                    if (Rs2Inventory.hasItem(getTeleportItemForPatch(FarmRunState.FARMING_LUMBRIDGE))) {
-                        Rs2Inventory.interact(getTeleportItemForPatch(FarmRunState.FARMING_LUMBRIDGE), "Break");
-                        Rs2Walker.setTarget(null);
-                        Rs2Player.waitForWalking();
-                        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
+                    if (useTeleport(FarmRunState.FARMING_LUMBRIDGE)) {
                         travelledToLumbridge = true;
                     }
                 }
@@ -305,11 +293,7 @@ public class FarmRunScript extends Script {
             case FARMING_TAVERLEY:
                 if (!travelledToTaverley) {
                     Microbot.log("Teleporting to Taverley patch...");
-                    if (Rs2Inventory.hasItem(getTeleportItemForPatch(FarmRunState.FARMING_TAVERLEY))) {
-                        Rs2Inventory.interact(getTeleportItemForPatch(FarmRunState.FARMING_TAVERLEY), "Break");
-                        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
-                        Rs2Walker.setTarget(null);
-                        Rs2Player.waitForWalking();
+                    if (useTeleport(FarmRunState.FARMING_TAVERLEY)) {
                         travelledToTaverley = true;
                     }
                 }
@@ -324,11 +308,7 @@ public class FarmRunScript extends Script {
             case FARMING_CATHERBY:
                 if (!travelledToCatherby) {
                     Microbot.log("Teleporting to Catherby patch...");
-                    if (Rs2Inventory.hasItem(getTeleportItemForPatch(FarmRunState.FARMING_CATHERBY))) {
-                        Rs2Inventory.interact(getTeleportItemForPatch(FarmRunState.FARMING_CATHERBY), "Break");
-                        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
-                        Rs2Walker.setTarget(null);
-                        Rs2Player.waitForWalking();
+                    if (useTeleport(FarmRunState.FARMING_CATHERBY)) {
                         travelledToCatherby = true;
                     }
                 }
@@ -372,7 +352,6 @@ public class FarmRunScript extends Script {
         }
     }
 
-
     // Perform farming actions and ensure all are completed before moving to the next patch
     private boolean performFarmActions(FarmRunConfig config, FarmPatch patch, int objectId) {
         boolean allActionsCompleted = true;
@@ -400,49 +379,46 @@ public class FarmRunScript extends Script {
     // Common tree action logic with added checks after each step
     private <T> boolean performTreeActions(FarmRunConfig config, FarmPatch patch, int objectId, T material) {
         boolean allActionsCompleted = true;
-        boolean compostApplied = false;  // Track if compost has already been applied
+        boolean compostUsed = false; // Track if compost has already been applied
 
         ObjectComposition tree = Rs2GameObject.findObjectComposition(objectId);
 
         // Step 1: Check health if applicable
         if (tree != null && Rs2GameObject.hasAction(tree, "check-health")) {
             allActionsCompleted &= checkTree(config, objectId);
-            sleep(2000);  // Ensure the check-health action is fully completed
+            sleep(2000); // Ensure the check-health action is fully completed
         }
 
         // Step 2: Remove the tree if it's fully grown and ready to be chopped down
         if (tree != null && Rs2GameObject.hasAction(tree, "chop down")) {
             allActionsCompleted &= removeTree(config, objectId, patch.getNpcId());
-            sleep(2000);  // Adding a short delay to ensure the action is fully completed
+            sleep(2000); // Adding a short delay to ensure the action is fully completed
         }
 
         // Step 3: Rake the patch if needed
         GameObject farmingPatch = Rs2GameObject.findObjectByImposter(objectId, "rake");
         if (farmingPatch != null) {
             allActionsCompleted &= rakePatch(config, objectId);
-            sleep(2000);  // Small delay after raking
+            sleep(2000); // Small delay after raking
         }
 
-        // Step 4: Apply compost (before planting) if it has not been applied yet
-        if ((tree == null || Rs2GameObject.hasAction(tree, "Inspect")) && !compostApplied) {
+        // Step 4: Apply compost (before planting)
+        if (tree == null || Rs2GameObject.hasAction(tree, "Inspect")) {
             if (config.protectionMode() == ProtectionMode.USE_COMPOST) {
-                Microbot.log("Applying compost to the patch before planting...");
-                compostApplied = useCompost(config, objectId);  // Apply compost before planting
+                compostUsed = useCompost(config, objectId); // Apply compost before planting
             }
+
+            allActionsCompleted &= plantTree(config, objectId, material); // Plant the tree
+            sleep(2000); // Ensure the planting process completes
         }
 
-        // Step 5: Plant the tree
-        allActionsCompleted &= plantTree(config, objectId, material);  // Plant the tree
-        sleep(2000);  // Ensure the planting process completes
-
-        // Step 6: Protect the tree (skip compost if already applied)
-        if (!compostApplied) {
+        // Step 5: Protect the tree (skip compost if already applied)
+        if (!compostUsed) {
             protectTree(config, objectId, patch.isFruitTree());
         }
 
         return allActionsCompleted;
     }
-
 
 
 
@@ -670,7 +646,7 @@ public class FarmRunScript extends Script {
             }
             if (taverleyTeleports > 0) {
                 Microbot.log("Withdrawing " + taverleyTeleports + " Taverley Teleport Tablets...");
-                if (!withdrawItemWithCheck(ItemID.FALADOR_TELEPORT, taverleyTeleports)) return false;
+                if (!withdrawItemWithCheck(ItemID.TAVERLEY_TELEPORT, taverleyTeleports)) return false;
             }
             if (catherbyTeleports > 0) {
                 Microbot.log("Withdrawing " + catherbyTeleports + " Camelot Teleport Tablets...");
@@ -772,6 +748,21 @@ public class FarmRunScript extends Script {
         missingItemRetries.remove(itemId);  // Reset retries if item is found
         return true;  // Successfully withdrew the item
     }
+
+    private boolean useTeleport(FarmRunState state) {
+        int teleportItemId = getTeleportItemForPatch(state);
+        if (Rs2Inventory.hasItem(teleportItemId)) {
+            Rs2Inventory.interact(teleportItemId, "Break");
+            sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 10000);
+            Rs2Walker.setTarget(null);  // Reset walking target to prevent conflict
+            Rs2Player.waitForWalking();
+            return true;
+        } else {
+            Microbot.log("No teleport item found for: " + state.name());
+            return false;
+        }
+    }
+
 
     // Helper method to withdraw one item with check
     private boolean withdrawItemWithCheck(int itemId) {
